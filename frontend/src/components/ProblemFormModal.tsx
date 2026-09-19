@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Problem, CreateProblemRequest, UpdateProblemRequest } from '../types';
+import type { Problem, CreateProblemRequest, UpdateProblemRequest, TestCase } from '../types';
 import { DIFFICULTY_TAGS } from '../types';
 import { createProblem, updateProblem } from '../services/problemService';
 import { useInterviewStore } from '../store/interview';
@@ -18,11 +18,15 @@ interface Example {
   explanation?: string;
 }
 
-interface TestCase {
-  input: string;
-  expectedOutput: string;
-  hidden: boolean;
-}
+const emptyTestCase = (): TestCase => ({
+  input: '',
+  expectedOutput: '',
+  hidden: false,
+  reviewStatus: 'pending',
+  reviewNote: undefined,
+  sampleKind: undefined,
+  reviewedAt: undefined,
+});
 
 export const ProblemFormModal: React.FC<ProblemFormModalProps> = ({
   isOpen,
@@ -36,7 +40,7 @@ export const ProblemFormModal: React.FC<ProblemFormModalProps> = ({
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [description, setDescription] = useState('');
   const [examples, setExamples] = useState<Example[]>([{ input: '', output: '', explanation: '' }]);
-  const [testCases, setTestCases] = useState<TestCase[]>([{ input: '', expectedOutput: '', hidden: false }]);
+  const [testCases, setTestCases] = useState<TestCase[]>([emptyTestCase()]);
   const [tagsInput, setTagsInput] = useState('');
   const [timeLimit, setTimeLimit] = useState(2000);
   const [memoryLimit, setMemoryLimit] = useState(256);
@@ -52,7 +56,7 @@ export const ProblemFormModal: React.FC<ProblemFormModalProps> = ({
       setDifficulty(editingProblem.difficulty);
       setDescription(editingProblem.description);
       setExamples(editingProblem.examples.length > 0 ? editingProblem.examples : [{ input: '', output: '', explanation: '' }]);
-      setTestCases(editingProblem.testCases.length > 0 ? editingProblem.testCases : [{ input: '', expectedOutput: '', hidden: false }]);
+      setTestCases(editingProblem.testCases.length > 0 ? editingProblem.testCases : [emptyTestCase()]);
       setTagsInput(editingProblem.tags.join(', '));
       setTimeLimit(editingProblem.timeLimit);
       setMemoryLimit(editingProblem.memoryLimit);
@@ -61,7 +65,7 @@ export const ProblemFormModal: React.FC<ProblemFormModalProps> = ({
       setDifficulty('easy');
       setDescription('');
       setExamples([{ input: '', output: '', explanation: '' }]);
-      setTestCases([{ input: '', expectedOutput: '', hidden: false }]);
+      setTestCases([emptyTestCase()]);
       setTagsInput('');
       setTimeLimit(2000);
       setMemoryLimit(256);
@@ -85,7 +89,7 @@ export const ProblemFormModal: React.FC<ProblemFormModalProps> = ({
   };
 
   const handleAddTestCase = () => {
-    setTestCases([...testCases, { input: '', expectedOutput: '', hidden: false }]);
+    setTestCases([...testCases, emptyTestCase()]);
   };
 
   const handleRemoveTestCase = (index: number) => {
@@ -94,7 +98,19 @@ export const ProblemFormModal: React.FC<ProblemFormModalProps> = ({
 
   const handleTestCaseChange = (index: number, field: keyof TestCase, value: string | boolean) => {
     const newTestCases = [...testCases];
-    newTestCases[index] = { ...newTestCases[index], [field]: value };
+    const current = newTestCases[index];
+    // 输入或预期输出被人工修改后，旧预检结论失效，回到待处理
+    if (field === 'input' || field === 'expectedOutput') {
+      newTestCases[index] = {
+        ...current,
+        [field]: value,
+        reviewStatus: 'pending',
+        reviewNote: '内容已人工修改，尚未重新检查',
+        reviewedAt: undefined,
+      };
+    } else {
+      newTestCases[index] = { ...current, [field]: value };
+    }
     setTestCases(newTestCases);
   };
 
@@ -165,7 +181,7 @@ export const ProblemFormModal: React.FC<ProblemFormModalProps> = ({
     setDifficulty('easy');
     setDescription('');
     setExamples([{ input: '', output: '', explanation: '' }]);
-    setTestCases([{ input: '', expectedOutput: '', hidden: false }]);
+    setTestCases([emptyTestCase()]);
     setTagsInput('');
     setTimeLimit(2000);
     setMemoryLimit(256);

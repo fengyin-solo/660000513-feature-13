@@ -241,7 +241,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         result = await onSubmit();
       } else {
         await new Promise(resolve => setTimeout(resolve, 1500));
-        const testCases = currentProblem?.testCases?.filter(t => !t.hidden) || [];
+        const testCases = currentProblem?.testCases?.filter(t => !t.hidden && t.reviewStatus === 'passed') || [];
         result = {
           success: Math.random() > 0.3,
           output: `// 模拟提交结果\n通过 ${Math.floor(Math.random() * testCases.length) + 1}/${testCases.length} 个测试用例`,

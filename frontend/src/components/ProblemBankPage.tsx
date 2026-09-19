@@ -5,6 +5,8 @@ import { getProblems, deleteProblem, isUsingMockData } from '../services/problem
 import { resetMockData } from '../services/mockProblemService';
 import { getDifficultyTag, DIFFICULTY_TAGS, type Problem } from '../types';
 import { ProblemFormModal } from './ProblemFormModal';
+import { PrecheckModal } from './PrecheckModal';
+import { summarizeProblem } from '../services/precheckService';
 
 export const ProblemBankPage: React.FC = () => {
   const { problems, setProblems, removeProblem } = useInterviewStore();
@@ -17,6 +19,7 @@ export const ProblemBankPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(false);
+  const [precheckProblem, setPrecheckProblem] = useState<Problem | null>(null);
 
   useEffect(() => {
     loadProblems();
@@ -56,6 +59,12 @@ export const ProblemBankPage: React.FC = () => {
   const handleEditProblem = (problem: Problem) => {
     setEditingProblem(problem);
     setIsModalOpen(true);
+  };
+
+  const handleOpenPrecheck = (problem: Problem) => {
+    // 以 store 中最新数据为准（可能刚被其他操作刷新过）
+    const latest = useInterviewStore.getState().problems.find(p => p.id === problem.id) ?? problem;
+    setPrecheckProblem(latest);
   };
 
   const handleDeleteClick = (problemId: string) => {
@@ -367,6 +376,20 @@ export const ProblemBankPage: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
+                        onClick={() => handleOpenPrecheck(problem)}
+                        style={{
+                          padding: '8px 16px',
+                          background: 'rgba(255, 152, 0, 0.1)',
+                          color: '#ff9800',
+                          border: '1px solid rgba(255, 152, 0, 0.3)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                        }}
+                      >
+                        发布前预检
+                      </button>
+                      <button
                         onClick={() => handleEditProblem(problem)}
                         style={{
                           padding: '8px 16px',
@@ -396,10 +419,38 @@ export const ProblemBankPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '24px', color: '#666', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', gap: '24px', color: '#666', fontSize: '12px', alignItems: 'center' }}>
                     <span>⏱ {problem.timeLimit}ms</span>
                     <span>💾 {problem.memoryLimit}MB</span>
                     <span>📊 {problem.testCases.length} 个测试用例</span>
+                    {(() => {
+                      const s = summarizeProblem(problem);
+                      const ready = s.pending === 0 && s.failed === 0 && s.passed > 0;
+                      const color = ready ? '#4caf50' : s.failed > 0 ? '#f44336' : '#ff9800';
+                      const label = ready
+                        ? `预检通过 ${s.passed}/${s.total}`
+                        : s.failed > 0
+                          ? `需修正 ${s.failed} · 待处理 ${s.pending}`
+                          : `待预检 ${s.pending}/${s.total}`;
+                      return (
+                        <button
+                          onClick={() => handleOpenPrecheck(problem)}
+                          style={{
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color,
+                            background: `${color}1f`,
+                            border: `1px solid ${color}55`,
+                            cursor: 'pointer',
+                          }}
+                          title="打开发布前预检"
+                        >
+                          {ready ? '✅' : '🔍'} {label}
+                        </button>
+                      );
+                    })()}
                     {problem.createdAt && (
                       <span>创建于 {new Date(problem.createdAt).toLocaleDateString('zh-CN')}</span>
                     )}
@@ -440,6 +491,16 @@ export const ProblemBankPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleSuccess}
         editingProblem={editingProblem}
+      />
+
+      <PrecheckModal
+        isOpen={!!precheckProblem}
+        problem={precheckProblem}
+        onClose={() => setPrecheckProblem(null)}
+        onSaved={(updated) => {
+          setPrecheckProblem(updated);
+          loadProblems();
+        }}
       />
     </div>
   );

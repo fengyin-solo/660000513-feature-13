@@ -1,8 +1,26 @@
+export type TestCaseReviewStatus = 'pending' | 'passed' | 'failed';
+
+export interface TestCase {
+  input: string;
+  expectedOutput: string;
+  hidden: boolean;
+  /** 发布前预检审核状态：待处理 / 可发布 / 需修正，缺省视为待处理 */
+  reviewStatus?: TestCaseReviewStatus;
+  /** 最近一次预检结论说明（含失败原因或参考解比对结果） */
+  reviewNote?: string;
+  /** 预检识别出的样例类型 */
+  sampleKind?: SampleKind;
+  /** 最近一次预检时间（ISO 字符串） */
+  reviewedAt?: string;
+}
+
+export type SampleKind = 'integer-array' | 'string' | 'linked-list' | 'nested-array' | 'other';
+
 export interface Problem {
   id: string; title: string; difficulty: 'easy' | 'medium' | 'hard';
   description: string;
   examples: { input: string; output: string; explanation?: string }[];
-  testCases: { input: string; expectedOutput: string; hidden: boolean }[];
+  testCases: TestCase[];
   tags: string[]; timeLimit: number; memoryLimit: number;
   createdAt?: string;
   updatedAt?: string;
@@ -14,7 +32,7 @@ export interface CreateProblemRequest {
   difficulty: 'easy' | 'medium' | 'hard';
   description: string;
   examples: { input: string; output: string; explanation?: string }[];
-  testCases: { input: string; expectedOutput: string; hidden: boolean }[];
+  testCases: TestCase[];
   tags: string[];
   timeLimit: number;
   memoryLimit: number;
@@ -23,6 +41,16 @@ export interface CreateProblemRequest {
 export interface UpdateProblemRequest extends Partial<CreateProblemRequest> {
   id: string;
 }
+
+/** 用例是否已通过预检确认（查看侧仅消费已确认用例） */
+export const isTestCaseConfirmed = (testCase: TestCase): boolean =>
+  testCase.reviewStatus === 'passed';
+
+/** 审核状态归一化，历史数据缺省字段按“待处理”处理 */
+export const getReviewStatus = (testCase: TestCase): TestCaseReviewStatus =>
+  testCase.reviewStatus === 'passed' || testCase.reviewStatus === 'failed'
+    ? testCase.reviewStatus
+    : 'pending';
 
 export interface DifficultyTag {
   value: 'easy' | 'medium' | 'hard';
