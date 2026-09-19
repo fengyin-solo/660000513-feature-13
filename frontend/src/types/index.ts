@@ -31,6 +31,48 @@ export interface DifficultyTag {
   bgColor: string;
 }
 
+// ---------- 发布前预检 ----------
+
+/** 样例（测试用例）数据类型，用于预检时按类型筛选 */
+export type SampleType =
+  | 'int-array'
+  | 'int-matrix'
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'array'
+  | 'other';
+
+export const SAMPLE_TYPE_LABELS: Record<SampleType, string> = {
+  'int-array': '整数数组',
+  'int-matrix': '二维数组',
+  string: '字符串',
+  number: '数字',
+  boolean: '布尔值',
+  array: '数组',
+  other: '其他',
+};
+
+/** 预检记录状态：待处理 / 可发布 / 需修正 */
+export type PrecheckStatus = 'pending' | 'passed' | 'failed';
+
+export type PrecheckIssueCategory = '空值' | '格式' | '边界' | '预期结果';
+
+export interface PrecheckIssue {
+  level: 'error' | 'warning';
+  category: PrecheckIssueCategory;
+  message: string;
+}
+
+/** 单条样例的预检结果（仅保存在本地，不下发到查看侧） */
+export interface PrecheckRecordResult {
+  status: Exclude<PrecheckStatus, 'pending'>;
+  issues: PrecheckIssue[];
+  checkedAt: string;
+  /** 人工确认为可发布，重跑时不会被覆盖 */
+  manual?: boolean;
+}
+
 export const DIFFICULTY_TAGS: DifficultyTag[] = [
   { value: 'easy', label: '简单', color: '#4caf50', bgColor: 'rgba(76, 175, 80, 0.15)' },
   { value: 'medium', label: '中等', color: '#ff9800', bgColor: 'rgba(255, 152, 0, 0.15)' },

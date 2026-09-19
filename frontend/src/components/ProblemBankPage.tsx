@@ -3,14 +3,18 @@ import { useInterviewStore } from '../store/interview';
 import { useToastStore } from '../store/toast';
 import { getProblems, deleteProblem, isUsingMockData } from '../services/problemService';
 import { resetMockData } from '../services/mockProblemService';
+import { getPrecheckSummary, clearPrecheckResults } from '../services/precheckService';
 import { getDifficultyTag, DIFFICULTY_TAGS, type Problem } from '../types';
 import { ProblemFormModal } from './ProblemFormModal';
+import { ProblemPrecheckModal } from './ProblemPrecheckModal';
 
 export const ProblemBankPage: React.FC = () => {
   const { problems, setProblems, removeProblem } = useInterviewStore();
   const { success, error, info, warning } = useToastStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProblem, setEditingProblem] = useState<Problem | null>(null);
+  const [precheckProblem, setPrecheckProblem] = useState<Problem | null>(null);
+  const [precheckVersion, setPrecheckVersion] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [selectedTag, setSelectedTag] = useState<string>('');
@@ -66,6 +70,7 @@ export const ProblemBankPage: React.FC = () => {
     if (!deleteConfirmId) return;
     try {
       await deleteProblem(deleteConfirmId);
+      clearPrecheckResults(deleteConfirmId);
       removeProblem(deleteConfirmId);
       setDeleteConfirmId(null);
       success('题目删除成功');
@@ -73,6 +78,15 @@ export const ProblemBankPage: React.FC = () => {
       console.error('Failed to delete problem:', err);
       error('删除题目失败，请稍后重试');
     }
+  };
+
+  const handleOpenPrecheck = (problem: Problem) => {
+    setPrecheckProblem(problem);
+  };
+
+  const handleClosePrecheck = () => {
+    setPrecheckProblem(null);
+    setPrecheckVersion(v => v + 1); // 预检结果可能已更新，刷新卡片上的汇总
   };
 
   const handleSuccess = (problem: Problem) => {
@@ -367,6 +381,20 @@ export const ProblemBankPage: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
+                        onClick={() => handleOpenPrecheck(problem)}
+                        style={{
+                          padding: '8px 16px',
+                          background: 'rgba(76, 175, 80, 0.1)',
+                          color: '#4caf50',
+                          border: '1px solid rgba(76, 175, 80, 0.3)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                        }}
+                      >
+                        预检
+                      </button>
+                      <button
                         onClick={() => handleEditProblem(problem)}
                         style={{
                           padding: '8px 16px',
@@ -396,10 +424,31 @@ export const ProblemBankPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '24px', color: '#666', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', gap: '24px', color: '#666', fontSize: '12px', alignItems: 'center' }}>
                     <span>⏱ {problem.timeLimit}ms</span>
                     <span>💾 {problem.memoryLimit}MB</span>
                     <span>📊 {problem.testCases.length} 个测试用例</span>
+                    {(() => {
+                      void precheckVersion; // 预检完成后触发重新渲染
+                      const summary = getPrecheckSummary(problem);
+                      if (summary.pending === summary.total) {
+                        return <span>🔍 未预检</span>;
+                      }
+                      return (
+                        <span>
+                          🔍 预检：
+                          <span style={{ color: '#4caf50' }}>{summary.passed} 可发布</span>
+                          {' / '}
+                          <span style={{ color: summary.failed > 0 ? '#f44336' : '#666' }}>{summary.failed} 需修正</span>
+                          {summary.pending > 0 && (
+                            <>
+                              {' / '}
+                              <span style={{ color: '#9e9e9e' }}>{summary.pending} 待处理</span>
+                            </>
+                          )}
+                        </span>
+                      );
+                    })()}
                     {problem.createdAt && (
                       <span>创建于 {new Date(problem.createdAt).toLocaleDateString('zh-CN')}</span>
                     )}
@@ -440,6 +489,12 @@ export const ProblemBankPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleSuccess}
         editingProblem={editingProblem}
+      />
+
+      <ProblemPrecheckModal
+        isOpen={!!precheckProblem}
+        problem={precheckProblem}
+        onClose={handleClosePrecheck}
       />
     </div>
   );
